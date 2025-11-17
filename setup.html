@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuração Wi-Fi ESP32</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f6fa;
+      color: #2f3640;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #273c75;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin: 20px auto;
+      max-width: 400px;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      margin-top: 15px;
+      width: 100%;
+      background: #0097e6;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #40739e;
+    }
+
+    #info {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .value {
+      font-weight: bold;
+      color: #44bd32;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Configuração Wi-Fi ESP32</h1>
+
+  <div id="info" class="card">
+    <p>IP Local: <span id="ip" class="value">---</span></p>
+    <p>RSSI: <span id="rssi" class="value">---</span> dBm</p>
+  </div>
+
+  <div class="card">
+    <h3>Rede Local (STA)</h3>
+    <label for="sta-ssid">SSID</label>
+    <input type="text" id="sta-ssid" placeholder="Nome da rede Wi-Fi">
+    <label for="sta-pass">Senha</label>
+    <input type="password" id="sta-pass" placeholder="Senha da rede Wi-Fi">
+    <button onclick="saveSTA()">Salvar STA</button>
+  </div>
+
+  <div class="card">
+    <h3>Access Point (AP)</h3>
+    <label for="ap-ssid">SSID</label>
+    <input type="text" id="ap-ssid" placeholder="Nome do Access Point">
+    <label for="ap-pass">Senha</label>
+    <input type="password" id="ap-pass" placeholder="Senha do Access Point">
+    <button onclick="saveAP()">Salvar AP</button>
+  </div>
+
+  <script>
+    async function getInfo() {
+      try {
+        const res = await fetch("/status");
+        const data = await res.json();
+        document.getElementById("ip").textContent = data.ip || "---";
+        document.getElementById("rssi").textContent = data.rssi || "---";
+      } catch (err) {
+        console.error("Erro ao obter status:", err);
+      }
+    }
+
+    async function saveSTA() {
+      const ssid = document.getElementById("sta-ssid").value;
+      const pass = document.getElementById("sta-pass").value;
+
+      await fetch("/setSTA", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ssid, pass })
+      });
+      alert("Configuração STA enviada!");
+    }
+
+    async function saveAP() {
+      const ssid = document.getElementById("ap-ssid").value;
+      const pass = document.getElementById("ap-pass").value;
+
+      await fetch("/setAP", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ssid, pass })
+      });
+      alert("Configuração AP enviada!");
+    }
+
+    // Atualiza status a cada 5 segundos
+    getInfo();
+    setInterval(getInfo, 5000);
+  </script>
+
+</body>
+</html>
