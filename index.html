@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Painel do Roteador — Integração REST</title>
+<style>
+  table {
+    border-collapse: collapse;
+    margin: auto;
+    color: #fff;
+    align-self: center;
+  }
+
+  th, td{
+  padding: 10px;
+  text-align: center;
+  width: 120px;
+  }
+
+  th{
+  font-weight: bold;
+  }
+
+
+  tr:nth-child(even) {
+  background-color: #152036;
+  }
+
+  tr:hover:nth-child(1n + 2) {
+  background-color: #0078D4;
+  color: #fff;
+  }
+  :root{
+    --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb;
+    --line:#1f2937; --accent:#22d3ee; --ok:#10b981; --warn:#f59e0b; --err:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:linear-gradient(135deg,#0b1220,#0e1530 40%,#0b1220);
+       color:var(--text); font-family:Inter,system-ui,Segoe UI,Roboto,Arial; min-height:100dvh; display:grid}
+  .app{display:grid; grid-template-columns:280px 1fr; gap:0; min-height:100dvh}
+  aside{background:rgba(17,24,39,.9); border-right:1px solid var(--line); padding:20px}
+  .brand{display:flex; align-items:center; gap:10px; margin:4px 0 16px}
+  .brand .dot{width:12px; height:12px; border-radius:50%; background:var(--accent); box-shadow:0 0 16px rgba(34,211,238,.7)}
+  .brand h1{font-size:16px; margin:0}
+  nav{display:flex; flex-direction:column; gap:8px}
+  .nav-btn{
+    text-align:left; padding:10px 12px; border-radius:10px; border:1px solid transparent;
+    background:#0b1220; color:#cbd5e1; cursor:pointer; font-weight:600
+  }
+  .nav-btn:hover{border-color:#22314a}
+  .nav-btn.active{border-color:rgba(34,211,238,.5); background:linear-gradient(180deg,#0b1220,#0e1a2e)}
+  main{padding:24px}
+  .card{
+    background:rgba(17,24,39,.75); border:1px solid rgba(148,163,184,.15);
+    border-radius:18px; padding:18px; backdrop-filter:blur(6px); box-shadow:0 10px 30px rgba(0,0,0,.35)
+  }
+  h2{margin:0 0 6px; font-size:20px}
+  p.lead{margin:0 0 16px; color:var(--muted)}
+  .grid{display:grid; gap:12px}
+  @media(min-width:980px){ .grid.cols-2{grid-template-columns:1fr 1fr} .grid.cols-3{grid-template-columns:repeat(3,1fr)} }
+  label{font-size:13px; color:#cbd5e1; font-weight:600}
+  .field{display:flex; flex-direction:column; gap:6px}
+  input, select{
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(148,163,184,.25);
+    background:#0b1220; color:var(--text); outline:none; font-size:14px
+  }
+  input:focus,select:focus{border-color:#38bdf8; box-shadow:0 0 0 3px rgba(56,189,248,.25)}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .btn{
+    padding:10px 14px; border-radius:10px; border:1px solid rgba(148,163,184,.3);
+    background:#0b1220; color:#e5e7eb; cursor:pointer; font-weight:700
+  }
+  .btn.primary{background:linear-gradient(180deg,#22d3ee,#06b6d4); color:#06202a; border:0}
+  .btn.warn{background:linear-gradient(180deg,#f59e0b,#d97706); color:#0b0b0b; border:0}
+  .btn.danger{background:linear-gradient(180deg,#ef4444,#dc2626); color:#0b0b0b; border:0}
+  .status{display:flex; align-items:center; gap:8px; color:var(--muted); min-height:24px}
+  .status .led{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .status.ok .led{background:var(--ok)}
+  .status.warn .led{background:var(--warn)}
+  .status.err .led{background:var(--err)}
+  .table{width:100%; border-collapse:separate; border-spacing:0 8px}
+  .table th{font-size:12px; color:#93c5fd; text-align:left; padding:6px 8px}
+  .table td{background:#0b1220; border:1px solid rgba(148,163,184,.2); padding:8px; border-radius:8px}
+  .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700}
+  .pill.info{background:rgba(34,211,238,.15); color:#67e8f9}
+  .hidden{display:none !important}
+  .hr{height:1px; background:rgba(148,163,184,.15); margin:14px 0}
+  .topbar{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:16px}
+  .topbar .right{display:flex; gap:8px; align-items:center}
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:#cbd5e1}
+  .muted{color:var(--muted)}
+  /* Modal */
+  .modal{position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.5)}
+  .modal .box{width:min(420px,95%); background:#0b1220; border:1px solid rgba(148,163,184,.2); border-radius:14px; padding:16px}
+  .modal h3{margin:0 0 8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><span class="dot"></span><h1>Painel do Roteador</h1></div>
+    <nav>
+      <button class="nav-btn active" data-tab="status">Home</button>
+      <button class="nav-btn" data-tab="wifi">Wi-Fi</button>
+      <button class="nav-btn" data-tab="lan">Datalogger</button>
+      <button class="nav-btn" data-tab="sistema">Sistema</button>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="topbar card">
+      <table id="Environment" class="tabela">
+        <thead> <td>🌡️Temperature</td><td>💧Humidity</td><td>🌱CO2</td><td>Air Quality Index</td><td>TVOC</td><td>HP0</td><td>HP1</td><td>HP2</td><td>HP3</td>
+          <tr>
+            <td id="temperature"> 0 </td><td id="humidity"> 0 </td><td id="co2"> 0 ppm</td><td id="aqi"> 0 </td><td id="tvoc"> 0 bmp</td><td id="hp0"> 0 </td><td id="hp1"> 0 </td><td id="hp2"> 0 </td><td id="hp3"> 0 </td>
+          </tr>
+        </thead>
+      </table>
+      <div class="status" id="globalStatus"><span class="led"></span><span class="msg">Não autenticado.</span></div>
+    </div>
+
+    <!-- Home -->
+    <section id="tab-status" class="card">
+      <h2>Status</h2>
+      <p class="lead">Resumo do dispositivo. Dados vindos da API.</p>
+      <div class="grid cols-3" id="status-cards"></div>
+      <div class="hr"></div>      
+    </section>
+
+    <!-- WIFI -->
+    <section id="tab-wifi" class="card hidden">
+      <div id="info" class="card">
+      <h2>Wi-Fi Router</h2>
+      <p class="lead">Network, password.</p>
+      <div class="grid cols-3">
+        <div class="field"><label for="sta-ssid">SSID</label>
+          <select id="sta-ssid" disabled><option>…</option></select>
+        </div>
+        <div class="field"><label for="password">Password</label><input id="password" type="password" /></div>
+      </div>
+      <div class="hr"></div>
+      <div class="row">
+        <button class="btn primary" data-action="sta-save-wifi">Save</button>        
+      </div>
+      <div class="status" id="wifiStatus"><span class="led"></span><span class="msg">—</span></div>
+      </div>
+      <p></p>
+      <div id="info" class="card">
+      <h2>Logger Access Point</h2>
+      <p class="lead">Network, password.</p>
+      <div class="grid cols-3">
+        <div class="field"><label for="ap-ssid">SSID</label><input id="ap-ssid" /></div>        
+        <div class="field"><label for="ap-pass">Password</label><input id="ap-pass" type="password" /></div>
+      </div>
+      <div class="hr"></div>
+      <div class="row">
+        <button class="btn primary" data-action="ap-save-wifi">Save</button>        
+      </div>
+      <div class="status" id="wifiStatus"><span class="led"></span><span class="msg">—</span></div>
+      </div>
+    </section>
+
+    <!-- LAN -->
+    <section id="tab-lan" class="card hidden">
+      <h2>Datalogger</h2>
+      <p class="lead">IP interno do roteador e servidor DHCP.</p>
+      <div class="grid cols-3">
+        <div class="field"><label for="lanIp">IP do Roteador</label><input id="lanIp" /></div>
+        <div class="field"><label for="lanMask">Máscara</label><input id="lanMask" /></div>
+        <div class="field"><label for="dhcp">DHCP</label>
+          <select id="dhcp"><option value="on">Ativo</option><option value="off">Inativo</option></select>
+        </div>
+        <div class="field"><label for="rangeStart">Início do intervalo</label><input id="rangeStart" /></div>
+        <div class="field"><label for="rangeEnd">Fim do intervalo</label><input id="rangeEnd" /></div>
+        <div class="field"><label for="lease">Concessão (min)</label><input id="lease" type="number" min="5" max="10080" /></div>
+      </div>
+      <div class="hr"></div>
+      <button class="btn primary" data-action="save-lan">Guardar</button>
+      <div class="status" id="lanStatus"><span class="led"></span><span class="msg">—</span></div>
+    </section>
+
+    <!-- SISTEMA -->
+    <section id="tab-sistema" class="card hidden">
+      <h2>Sistema</h2>
+      <p class="lead">Ações gerais.</p>
+      <div class="row">
+        <button class="btn warn" id="btnFactory">Reposição de fábrica</button>
+      </div>
+      <div class="hr"></div>
+      <div class="status" id="sysStatus"><span class="led"></span><span class="msg">—</span></div>
+      <p class="muted kbd">Observação: esta UI envia/recebe JSON. Ajuste endpoints se o teu backend usar outra rota/forma.</p>
+    </section>
+  </main>
+</div>
+
+<!-- MODAL LOGIN -->
+<!-- <div class="modal" id="loginModal">
+  <div class="box">
+    <h3>Autenticação</h3>
+    <p class="muted">Entre com as credenciais do roteador.</p>
+    <div class="field"><label for="user">Utilizador</label><input id="user" autocomplete="username" /></div>
+    <div class="field"><label for="pass">Senha</label><input id="pass" type="password" autocomplete="current-password" /></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn primary" id="btnLogin">Entrar</button>
+    </div>
+    <div class="status" id="loginStatus"><span class="led"></span><span class="msg">—</span></div>
+  </div>
+</div> -->
+
+<script>
+  // ======== Configuração API ========
+  const $ = (s,root=document)=>root.querySelector(s);
+  const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
+  let TOKEN = '';
+  let BASE_URL = ''; // define via input no topo
+  let CSRF = '';
+
+  function setStatus(el, mood, msg){
+    el.classList.remove('ok','warn','err');
+    if (mood) el.classList.add(mood);
+    $('.msg', el).textContent = msg;
+  }
+
+  // Wrapper fetch com timeout, token e CSRF
+  async function api(path, {method='GET', body=null, timeout=6000, headers={}} = {}){
+    if(!BASE_URL) throw new Error('Defina a Base URL da API.');
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), timeout);
+    const h = {
+      'Accept':'application/json',
+      ...(body ? {'Content-Type':'application/json'} : {}),
+      ...(TOKEN ? {'Authorization': 'Bearer ' + TOKEN} : {}),
+      ...(CSRF ? {'X-CSRF-Token': CSRF} : {}),
+      ...headers
+    };
+    try{
+      const res = await fetch(BASE_URL.replace(/\/$/,'') + path, {
+        method, headers:h, body: body? JSON.stringify(body): null, signal: ctrl.signal, cache:'no-store', credentials:'include'
+      });
+      clearTimeout(t);
+      if(!res.ok){
+        let msg = `HTTP ${res.status}`;
+        try{ const data = await res.json(); msg = data.message || data.error || msg }catch{}
+        throw new Error(msg);
+      }
+      // Alguns endpoints podem devolver ficheiro; aqui assumimos JSON
+      return await res.json();
+    }catch(err){
+      clearTimeout(t);
+      throw err;
+    }
+  }
+
+  // ======== UI básica / navegação ========
+  $$('.nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      $$('.nav-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      $$('main > section').forEach(s=>s.classList.add('hidden'));
+      $('#tab-'+tab).classList.remove('hidden');
+    });
+  });
+
+  // Atualiza BASE_URL/CSRF a partir dos inputs
+  $('#baseUrl').addEventListener('change', ()=>{ BASE_URL = $('#baseUrl').value.trim(); });
+  $('#csrf').addEventListener('change', ()=>{ CSRF = $('#csrf').value.trim(); });
+
+  // ======== Login ========
+  async function doLogin(){
+    const u = $('#user').value.trim();
+    const p = $('#pass').value;
+    try{
+      setStatus($('#loginStatus'), null, 'A autenticar…');
+      const data = await api('/api/login', { method:'POST', body:{username:u, password:p} });
+      TOKEN = data.token;
+      $('#loginModal').classList.add('hidden');
+      setStatus($('#globalStatus'), 'ok', 'Autenticado.');
+      await bootstrap();
+    }catch(err){
+      setStatus($('#loginStatus'), 'err', 'Falha ao entrar: ' + err.message);
+    }
+  }
+  $('#btnLogin').addEventListener('click', doLogin);
+  $('#btnLogout').addEventListener('click', ()=>{
+    TOKEN = ''; setStatus($('#globalStatus'), null, 'Sessão terminada.');
+    $('#loginModal').classList.remove('hidden');
+  });
+
+  // Testar API (sem autenticar)
+  $('#btnCheck').addEventListener('click', async ()=>{
+    try{
+      await api('/api/status', {timeout:3000});
+      setStatus($('#globalStatus'), 'ok', 'API acessível.');
+    }catch(e){
+      setStatus($('#globalStatus'), 'err', 'API inacessível: ' + e.message);
+    }
+  });
+
+  // ======== Bootstrap (carregar dados) ========
+  async function bootstrap(){
+    try{
+      // Status
+      const status = await api('/api/status');
+      renderStatus(status);
+      // WAN
+      const wan = await api('/api/wan');
+      hydrateWan(wan);
+      // Wi-Fi
+      const wifi = await api('/api/wifi');
+      hydrateWifi(wifi);
+      // LAN
+      const lan = await api('/api/lan');
+      hydrateLan(lan);
+      // Port FW
+      const pf = await api('/api/portfw');
+      renderPF(pf);
+    }catch(err){
+      setStatus($('#globalStatus'), 'err', 'Erro ao carregar dados: ' + err.message);
+    }
+  }
+
+  // ======== STATUS ========
+  function renderStatus(s){
+    const box = $('#status-cards'); box.innerHTML='';
+    const cards = [
+      {k:'Modelo', v:s?.model ?? '—'},
+      {k:'Firmware', v:s?.fw ?? '—'},
+      {k:'Série', v:s?.serial ?? '—'},
+      {k:'Uptime', v:s?.uptime ?? '—'},
+      {k:'Internet', v:s?.wan?.type?.toUpperCase?.() ?? '—'},
+      {k:'Wi-Fi', v:s?.wifi ? `${s.wifi.ssid} (${s.wifi.band} GHz)` : '—'},
+    ];
+    cards.forEach(c=>{
+      const el = document.createElement('div');
+      el.className = 'card'; el.style.padding='12px';
+      el.innerHTML = `<div style="font-size:12px;color:#93c5fd">${c.k}</div><div style="font-weight:800">${c.v}</div>`;
+      box.appendChild(el);
+    });
+  }
+
+  // ======== WAN ========
+  const wanType = $('#wanType'), wanMtu = $('#wanMtu');
+  const pppPan = $('#wan-pppoe'), staPan = $('#wan-static');
+  const pUser = $('#pppoeUser'), pPass = $('#pppoePass');
+  const wIp = $('#wanIp'), wMask = $('#wanMask'), wGw = $('#wanGw'), wDns1 = $('#wanDns1'), wDns2 = $('#wanDns2');
+
+  function toggleWanPanels(){
+    pppPan.classList.toggle('hidden', wanType.value!=='pppoe');
+    staPan.classList.toggle('hidden', wanType.value!=='static');
+  }
+  wanType.addEventListener('change', toggleWanPanels);
+
+  function hydrateWan(w){
+    wanType.value = w?.type ?? 'dhcp';
+    wanMtu.value = w?.mtu ?? 1500;
+    pUser.value = w?.pppoe?.user ?? '';
+    pPass.value = '';
+    wIp.value = w?.static?.ip ?? '';
+    wMask.value = w?.static?.mask ?? '';
+    wGw.value = w?.static?.gw ?? '';
+    wDns1.value = w?.static?.dns1 ?? '';
+    wDns2.value = w?.static?.dns2 ?? '';
+    toggleWanPanels();
+    setStatus($('#wanStatus'), null, 'Carregado.');
+  }
+
+  $('[data-action="save-wan"]').addEventListener('click', async ()=>{
+    try{
+      const mtu = parseInt(wanMtu.value,10);
+      if (mtu<576 || mtu>1500) throw new Error('MTU fora do intervalo (576–1500).');
+      const payload = {
+        type: wanType.value,
+        mtu,
+        pppoe: { user:pUser.value.trim(), pass:pPass.value },
+        static: { ip:wIp.value.trim(), mask:wMask.value.trim(), gw:wGw.value.trim(), dns1:wDns1.value.trim(), dns2:wDns2.value.trim() }
+      };
+      if(payload.type==='pppoe' && (!payload.pppoe.user || !payload.pppoe.pass)) throw new Error('PPPoE: utilizador e senha obrigatórios.');
+      if(payload.type==='static' && !isValidIpBlock(payload.static)) throw new Error('IP estático inválido.');
+      const res = await api('/api/wan', {method:'PUT', body:payload});
+      hydrateWan(res);
+      setStatus($('#wanStatus'),'ok','WAN guardada.');
+      // Atualiza status global
+      const st = await api('/api/status'); renderStatus(st);
+    }catch(e){
+      setStatus($('#wanStatus'),'err', e.message);
+    }
+  });
+
+  function isValidIpBlock(st){
+    const isIp = ip=>/^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && ip.split('.').every(o=>+o>=0&&+o<=255);
+    return isIp(st.ip)&&isIp(st.mask)&&isIp(st.gw);
+  }
+
+  // ======== WIFI ========
+  const sta_ssid=$('#ssid'), sta_pass=$('#password');
+  const ap_ssid=$('#ssid'), ap_pass=$('#password');
+  function hydrateWifi(w){
+    sta_ssid.value = w?.ssid ?? '';
+    sta_pass.value = '';
+    setStatus($('#wifiStatus'), null, 'Carregado.');
+  }
+  $('[data-action="sta-save-wifi"]').addEventListener('click', async ()=>{
+    try{
+      if (!sta_ssid.value.trim()) throw new Error('SSID não pode ser vazio.');
+      if ((sta_pass.value.length<8)) throw new Error('Senha mínima de 8 caracteres.');
+      const payload = { ssid:sta_ssid.value.trim(), pass:password.value };
+      const res = await api('/setSTA', {method:'POST', body:payload});
+      hydrateWifi(res);
+      setStatus($('#wifiStatus'),'ok','Wi-Fi guardado.');
+      // const st = await api('/api/status'); renderStatus(st);
+    }catch(e){
+      setStatus($('#wifiStatus'),'err', e.message);
+    }
+  });
+  $('[data-action="ap-save-wifi"]').addEventListener('click', async ()=>{
+    try{
+      if (!ap_ssid.value.trim()) throw new Error('SSID não pode ser vazio.');
+      if ((ap_pass.value.length<8)) throw new Error('Senha mínima de 8 caracteres.');
+      const payload = { ssid:ap_ssid.value.trim(), pass:ap_pass.value };
+      const res = await api('/setAP', {method:'POST', body:payload});
+      hydrateWifi(res);
+      setStatus($('#wifiStatus'),'ok','Wi-Fi guardado.');
+      // const st = await api('/api/status'); renderStatus(st);
+    }catch(e){
+      setStatus($('#wifiStatus'),'err', e.message);
+    }
+  });
+
+  // ======== LAN ========
+  const lanIp=$('#lanIp'), lanMask=$('#lanMask'), dhcp=$('#dhcp'), rangeStart=$('#rangeStart'), rangeEnd=$('#rangeEnd'), lease=$('#lease');
+  function hydrateLan(l){
+    lanIp.value = l?.ip ?? '';
+    lanMask.value = l?.mask ?? '';
+    dhcp.value = l?.dhcp ?? 'on';
+    rangeStart.value = l?.rangeStart ?? '';
+    rangeEnd.value = l?.rangeEnd ?? '';
+    lease.value = l?.lease ?? 1440;
+    setStatus($('#lanStatus'), null, 'Carregado.');
+  }
+  $('[data-action="save-lan"]').addEventListener('click', async ()=>{
+    try{
+      const isIp = ip=>/^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && ip.split('.').every(o=>+o>=0&&+o<=255);
+      if (![lanIp.value,lanMask.value,rangeStart.value,rangeEnd.value].every(isIp)) throw new Error('Há IP inválido.');
+      if (+lease.value<5) throw new Error('Concessão mínima: 5 min.');
+      const payload = { ip:lanIp.value, mask:lanMask.value, dhcp:dhcp.value, rangeStart:rangeStart.value, rangeEnd:rangeEnd.value, lease:+lease.value };
+      const res = await api('/api/lan', {method:'PUT', body:payload});
+      hydrateLan(res);
+      setStatus($('#lanStatus'),'ok','LAN guardada.');
+    }catch(e){
+      setStatus($('#lanStatus'),'err', e.message);
+    }
+  });
+
+  // ======== Sistema ========
+  $('#btnReboot').addEventListener('click', async ()=>{
+    try{
+      await api('/api/reboot', {method:'POST', body:{confirm:true}});
+      setStatus($('#globalStatus'),'ok','Roteador a reiniciar…');
+    }catch(e){ setStatus($('#globalStatus'),'err', e.message); }
+  });
+
+  $('#btnFactory').addEventListener('click', async ()=>{
+    if(!confirm('Tem certeza que deseja repor configuração de fábrica?')) return;
+    try{
+      await api('/api/sistema/factory', {method:'POST', body:{confirm:true}});
+      setStatus($('#sysStatus'),'ok','Reposição iniciada.');
+    }catch(e){ setStatus($('#sysStatus'),'err', e.message); }
+  });
+
+  // Exportar backup
+  $('#btnExport').addEventListener('click', async ()=>{
+    try{
+      const data = await api('/api/backup', {method:'GET'});
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='backup-roteador.json'; a.click();
+    }catch(e){ setStatus($('#globalStatus'),'err', e.message); }
+  });
+
+  // ======== Inicialização ========
+  // Tenta sugerir um base URL padrão
+  const guess = location.origin.startsWith('http') ? location.origin : 'http://192.168.4.1';
+  $('#baseUrl').value = guess; BASE_URL = guess;
+
+  // Abrir login ao carregar
+  window.addEventListener('DOMContentLoaded', ()=>{
+    $('#loginModal').classList.remove('hidden');
+  });
+
+  async function getNetworks() {
+      try {
+        const res = await fetch("/networks");
+        const data = await res.json();
+        console.log(data)
+        const names = extractNames(data);
+        console.log(names)
+        populateSelect(names);
+      } catch (err) {
+        console.error("Erro ao obter status:", err);
+      }
+    }
+  function extractNames(json) {
+      if (Array.isArray(json)) {
+        // array de strings ou de objetos
+        if (json.length && typeof json[0] === 'object') {
+          return json.map(o => String(o.nome ?? o.name ?? o.label ?? '')).filter(Boolean);
+        }
+        return json.map(String).filter(Boolean);
+      }
+      if (json && typeof json === 'object') {
+        const possible = ['nomes','names','items','data','pessoas','lista'];
+        for (const key of possible) {
+          if (Array.isArray(json[key])) return extractNames(json[key]);
+        }
+      }
+      return [];
+    }
+
+    function populateSelect(names) {
+      const sel = document.getElementById("sta-ssid");
+      sel.innerHTML = '';
+      names
+        .map(s => s.trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, 'pt'))
+        .forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name; opt.textContent = name;
+          sel.appendChild(opt);
+        });
+      sel.disabled = names.length === 0;
+    }
+  const updateTable = (records) =>
+  {
+    document.getElementById("temperature").textContent = records["temperature"];
+    document.getElementById("humidity").textContent = records["humidity"];
+    document.getElementById("co2").textContent = records["co2"];
+    document.getElementById("aqi").textContent = records["aqi"];
+    document.getElementById("tvoc").textContent = records["tvoc"];
+    document.getElementById("hp0").textContent = records["hp0"];
+    document.getElementById("hp1").textContent = records["hp1"];
+    document.getElementById("hp2").textContent = records["hp2"];
+    document.getElementById("hp3").textContent = records["hp3"];
+  }
+
+  async function getData(endpoint) 
+  {
+    const data = await fetch(endpoint);
+    const records = await data.json();
+    updateTable(records);
+  }
+  setInterval(() => {
+    getData("/updateSensor");
+  }, 5000);
+  getData("/updateSensor");
+  getNetworks();
+</script>
+</body>
+</html>
